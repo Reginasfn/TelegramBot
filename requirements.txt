@@ -17,3 +17,15 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 yarl==1.23.0
 python-dotenv==1.0.1
+requests==2.31.0
+sentence-transformers==2.2.2
+huggingface-hub==0.13.4
+torch>=1.6.0
+transformers>=4.6.0
+tqdm
+numpy
+scikit-learn
+scipy
+nltk
+sentencepiece
+torchvision
