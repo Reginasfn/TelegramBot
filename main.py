@@ -21,6 +21,7 @@ dp = Dispatcher()
 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
 
 hello_patrick = "CAACAgIAAxkBAAEcBfhpszLSSWz-Mfyw6CSmr18f8D_nogAC5AADlp-MDscIDPUzftb3OgQ"
+blabla_patrick = "CAACAgIAAxkBAAEcLW1puJNFpk4pbVDS-7s3bx0zoupWQwACzgADlp-MDqZHXSdMxffEOgQ"
 
 # ------------------- Работа с TMDB -------------------
 
@@ -125,10 +126,13 @@ def get_movie_by_id(movie_id):
 
 async def send_movie(chat_id, movie):
     poster_path = movie.get("poster_path")
+
     if poster_path:
         poster = f"https://image.tmdb.org/t/p/w500{poster_path}"
+        use_local = False
     else:
-        poster = None
+        poster = "not-found.jpg"
+        use_local = True
 
     runtime = movie.get("runtime", 0)
     if isinstance(runtime, int) and runtime > 0:
@@ -165,10 +169,23 @@ async def send_movie(chat_id, movie):
     buttons.append([InlineKeyboardButton(text="🎲 Другой фильм", callback_data="random_movie")])
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
-    if poster:
-        await bot.send_photo(chat_id, poster, caption=text, parse_mode="HTML", reply_markup=keyboard)
-    else:
-        await bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboard)
+    try:
+        if use_local:
+            with open(poster, "rb") as photo:
+                await bot.send_photo(chat_id, photo, caption=text, parse_mode="HTML", reply_markup=keyboard)
+        else:
+            await bot.send_photo(chat_id, poster, caption=text, parse_mode="HTML", reply_markup=keyboard)
+
+    except Exception as e:
+        print("SEND PHOTO ERROR:", e)
+
+        try:
+            with open("not-found.jpg", "rb") as photo:
+                await bot.send_photo(chat_id, photo, caption=text, parse_mode="HTML", reply_markup=keyboard)
+        except Exception as e:
+            print("FALLBACK ERROR:", e)
+
+            await bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboard)
 
 async def send_random_movie(chat_id):
     movie = await asyncio.to_thread(get_random_movie)
@@ -191,7 +208,7 @@ async def send_trending_movies(chat_id):
 def get_user_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="▶️ start")],
+            [KeyboardButton(text="🚀 Старт")],
             [KeyboardButton(text="🎲 Случайный фильм"), KeyboardButton(text="🗓 В тренде")],
             [KeyboardButton(text="🔍 Умный поиск"), KeyboardButton(text="🔑 По описанию")],
             [KeyboardButton(text="📜 Все команды")]
@@ -214,7 +231,7 @@ async def start(message: types.Message):
         "🔍 Умный поиск — /search\n"
         "🔑 По описанию — /description\n\n"
         "Можно использовать кнопки или команды.\n\n"
-        "─────────────────────────\n"
+        "──────────────────\n"
         "🆘 Вопросы крутым разработчикам:\n"
         "👨‍💻 @regsaff | 👨‍💻 @lyuuubaaa"
     )
@@ -242,7 +259,7 @@ async def description_movie_cmd(message: types.Message):
 
 # ------------------- Кнопки -------------------
 
-@dp.message(F.text == "▶️ start")
+@dp.message(F.text == "🚀 Старт")
 async def start_button(message: types.Message):
     await start(message)
 
@@ -271,7 +288,7 @@ async def show_commands(message: types.Message):
         "/trending — фильмы в тренде\n"
         "/search — умный поиск\n"
         "/description — поиск по описанию\n\n"
-        "──────────────────────────────────\n"
+        "──────────────────\n"
         "🆘 Вопросы крутым разработчикам:\n"
         "👨‍💻 @regsaff | 👨‍💻 @lyuuubaaa"
     )
@@ -279,7 +296,15 @@ async def show_commands(message: types.Message):
 
 @dp.message()
 async def unknown(message: types.Message):
-    await message.answer("Чтобы начать работу нажми кнопку ▶️ start 👇", reply_markup=get_user_keyboard())
+    try:
+        await message.answer_sticker(sticker=blabla_patrick)
+    except Exception:
+        pass
+
+    await message.answer(
+        "Ух ты, заумно как... Давай лучше на «🚀 Старт» нажмём?👇",
+        reply_markup=get_user_keyboard()
+    )
 
 # ------------------- Callback -------------------
 
