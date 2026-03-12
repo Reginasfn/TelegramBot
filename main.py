@@ -1,16 +1,24 @@
-# This is a sample Python script.
+import asyncio
+import os
+from aiogram import Bot, Dispatcher, types, F 
+from aiogram.filters import Command
+from dotenv import load_dotenv
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+load_dotenv()
 
+bot = Bot(token=os.getenv("BOT_TOKEN"))
+dp = Dispatcher()
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+@dp.message(Command("start"))
+async def start(message: types.Message):
+    await message.answer('Привет! Я эхо-бот. Напиши мне что-нибудь! 🎉')
 
+@dp.message(F.text)
+async def echo(message: types.Message):
+    await message.answer(message.text)
 
-# Press the green button in the gutter to run the script.
+async def main():
+    await dp.start_polling(bot)
+
 if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    asyncio.run(main())
