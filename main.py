@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from dotenv import load_dotenv
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, util
 from gemini_ai import ask_gemini
 from datetime import datetime
 
@@ -23,6 +23,10 @@ model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
 
 hello_patrick = "CAACAgIAAxkBAAEcBfhpszLSSWz-Mfyw6CSmr18f8D_nogAC5AADlp-MDscIDPUzftb3OgQ"
 blabla_patrick = "CAACAgIAAxkBAAEcLW1puJNFpk4pbVDS-7s3bx0zoupWQwACzgADlp-MDqZHXSdMxffEOgQ"
+
+description_waiting = {}
+ai_waiting = {}
+
 
 # ------------------- Работа с TMDB -------------------
 
@@ -49,17 +53,19 @@ def get_random_movie():
             "poster_path": None
         }
 
+
 def get_trending_movies():
     try:
         url = f"https://api.themoviedb.org/3/trending/movie/day?api_key={TMDB_API_KEY}&language=ru-RU"
         response = requests.get(url, timeout=10).json()
         movies = response.get("results", [])[:5]
-        trending = [{"id": m["id"], "title": m.get("title", "Без названия"), 
+        trending = [{"id": m["id"], "title": m.get("title", "Без названия"),
                      "year": m.get("release_date", "??")[:4] if m.get("release_date") else "?"} for m in movies]
         return trending
     except Exception as e:
         print("TMDB TRENDING ERROR:", e)
         return []
+
 
 def get_movie_by_id(movie_id):
     try:
@@ -69,7 +75,7 @@ def get_movie_by_id(movie_id):
 
         director = next((c["name"] for c in credits.get("crew", []) if c.get("job") == "Director"), "—")
         actors = ", ".join([a["name"] for a in credits.get("cast", [])[:3]])
-        trailer = next((f"https://youtube.com/watch?v={v['key']}" for v in videos.get("results", []) 
+        trailer = next((f"https://youtube.com/watch?v={v['key']}" for v in videos.get("results", [])
                         if v.get("type") == "Trailer" and v.get("site") == "YouTube"), None)
         genres = ", ".join([g["name"] for g in details.get("genres", [])])
 
@@ -91,6 +97,36 @@ def get_movie_by_id(movie_id):
         print("TMDB ERROR:", e)
         return None
 
+
+def search_movies_by_description(query):
+    try:
+        url = (
+            f"https://api.themoviedb.org/3/discover/movie?api_key={TMDB_API_KEY}"
+            f"&language=ru-RU&sort_by=popularity.desc&vote_count.gte=200&page=1"
+        )
+        response = requests.get(url, timeout=10).json()
+        movies = response.get("results", [])[:10]
+
+        if not movies:
+            return None
+
+        descriptions = [m.get("overview", "") for m in movies]
+
+        # эмбеддинги
+        query_emb = model.encode(query, convert_to_tensor=True)
+        desc_emb = model.encode(descriptions, convert_to_tensor=True)
+
+        scores = util.cos_sim(query_emb, desc_emb)
+        best_idx = scores.argmax().item()
+
+        best_movie = movies[best_idx]
+        return get_movie_by_id(best_movie["id"])
+
+    except Exception as e:
+        print("DESCRIPTION SEARCH ERROR:", e)
+        return None
+
+
 # ------------------- Клавиатура -------------------
 
 def get_user_keyboard():
@@ -103,6 +139,7 @@ def get_user_keyboard():
         ],
         resize_keyboard=True
     )
+
 
 # ------------------- Отправка фильма -------------------
 
@@ -136,10 +173,12 @@ async def send_movie(chat_id, movie):
     else:
         await bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboard)
 
+
 async def send_random_movie(chat_id):
     movie = await asyncio.to_thread(get_random_movie)
     print(f"[INFO] Найден фильм: {movie.get('title', 'без названия')}")
     await send_movie(chat_id, movie)
+
 
 async def send_trending_movies(chat_id):
     trending = get_trending_movies()
@@ -150,38 +189,6 @@ async def send_trending_movies(chat_id):
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     await bot.send_message(chat_id, "🔥 Трендовые фильмы сегодня:", reply_markup=keyboard)
 
-# ------------------- Обработка ИИ -------------------
-
-@dp.callback_query(F.data.startswith("ask_ai_"))
-async def ask_ai_callback(callback: types.CallbackQuery):
-    await callback.answer()
-    movie_id = int(callback.data.split("_")[2])
-    movie = get_movie_by_id(movie_id)
-    movie_title = movie.get("title", "фильм") if movie else "фильм"
-
-    chat_id = callback.message.chat.id
-    print(f"[INFO] Пользователь {callback.from_user.id} спрашивает ИИ про {movie_title}")
-    loading_msg = await bot.send_message(chat_id, f"🤖 ИИ думает про <b>{movie_title}</b>...", parse_mode="HTML")
-
-    async def handle_ai_question(msg: types.Message):
-        if msg.chat.id != chat_id:
-            return
-        print(f"[INFO] Получен вопрос: {msg.text}")
-        try:
-            answer = await ask_gemini(msg.text)
-            print(f"[INFO] Ответ ИИ: {answer[:50]}...")
-            await msg.answer(f"🤖 Ответ ИИ:\n{answer}")
-        except Exception as e:
-            print(f"[ERROR] Ошибка при запросе ИИ: {e}")
-            await msg.answer("⚠️ Произошла ошибка при обращении к ИИ")
-        finally:
-            dp.message_handlers.unregister(handle_ai_question)
-            try:
-                await loading_msg.delete()
-            except:
-                pass
-
-    dp.message_handlers.register(handle_ai_question)
 
 # ------------------- Команды -------------------
 
@@ -206,21 +213,27 @@ async def start_cmd(message: types.Message):
     )
     await message.answer(caption, parse_mode="HTML", reply_markup=get_user_keyboard())
 
+
 @dp.message(Command("random"))
 async def random_movie_cmd(message: types.Message):
     await send_random_movie(message.chat.id)
+
 
 @dp.message(Command("trending"))
 async def trending_cmd(message: types.Message):
     await send_trending_movies(message.chat.id)
 
+
 @dp.message(Command("search"))
 async def smart_search_cmd(message: types.Message):
     await message.answer("🔍 Умный поиск пока в разработке")
 
+
 @dp.message(Command("description"))
 async def description_movie_cmd(message: types.Message):
-    await message.answer("🔑 По описанию пока в разработке")
+    description_waiting[message.chat.id] = True
+    await message.answer("🔑 Напиши описание фильма, который хочешь найти 👇")
+
 
 # ------------------- Кнопки -------------------
 
@@ -228,22 +241,27 @@ async def description_movie_cmd(message: types.Message):
 async def start_button(message: types.Message):
     await start_cmd(message)
 
+
 @dp.message(F.text == "🎲 Случайный фильм")
 async def random_button(message: types.Message):
     print(f"[INFO] Пользователь {message.from_user.id} нажал '🎲 Случайный фильм'")
     await send_random_movie(message.chat.id)
 
+
 @dp.message(F.text == "🗓 В тренде")
 async def trending_button(message: types.Message):
     await send_trending_movies(message.chat.id)
+
 
 @dp.message(F.text == "🔍 Умный поиск")
 async def search_button(message: types.Message):
     await message.answer("🔍 Умный поиск пока в разработке")
 
+
 @dp.message(F.text == "🔑 По описанию")
 async def description_button(message: types.Message):
-    await message.answer("🔑 По описанию пока в разработке")
+    await description_movie_cmd(message)
+
 
 @dp.message(F.text == "📜 Все команды")
 async def show_commands(message: types.Message):
@@ -260,18 +278,65 @@ async def show_commands(message: types.Message):
     )
     await message.answer(commands, parse_mode="HTML")
 
+
+# ------------------- Универсальный обработчик -------------------
+
 @dp.message()
-async def unknown(message: types.Message):
-    try:
-        await message.answer_sticker(sticker=blabla_patrick)
-    except:
-        pass
-    await message.answer(
-        "Ух ты, заумно как... Давай лучше на «🚀 Старт» нажмём?👇",
-        reply_markup=get_user_keyboard()
-    )
+async def universal_handler(message: types.Message):
+    chat_id = message.chat.id
+
+    # Если бот ждёт описание фильма
+    if description_waiting.get(chat_id):
+        description_waiting.pop(chat_id)
+        loading = await message.answer("🔍 Ищу похожий фильм...")
+        movie = await asyncio.to_thread(search_movies_by_description, message.text)
+        await loading.delete()
+        if movie:
+            await send_movie(chat_id, movie)
+        else:
+            await message.answer("😔 Ничего не нашёл, попробуй иначе описать")
+        return
+
+    # Если бот ждёт вопрос к ИИ
+    if ai_waiting.get(chat_id):
+        movie_id = ai_waiting.pop(chat_id)
+        loading = await message.answer("🤖 ИИ думает...")
+        try:
+            answer = await ask_gemini(message.text)
+            await message.answer(f"🤖 Ответ ИИ:\n{answer}")
+        except Exception as e:
+            print(f"[ERROR] Ошибка при запросе ИИ: {e}")
+            await message.answer("⚠️ Произошла ошибка при обращении к ИИ")
+        await loading.delete()
+        return
+
+    # Если это обычное неизвестное сообщение
+    if message.text not in ["🚀 Старт", "🎲 Случайный фильм", "🗓 В тренде",
+                            "🔍 Умный поиск", "🔑 По описанию", "📜 Все команды"]:
+        try:
+            await message.answer_sticker(sticker=blabla_patrick)
+        except:
+            pass
+        await message.answer(
+            "Ух ты, заумно как... Давай лучше на «🚀 Старт» нажмём?👇",
+            reply_markup=get_user_keyboard()
+        )
+
 
 # ------------------- Callback -------------------
+
+@dp.callback_query(F.data.startswith("ask_ai_"))
+async def ask_ai_callback(callback: types.CallbackQuery):
+    await callback.answer()
+    movie_id = int(callback.data.split("_")[2])
+    movie = get_movie_by_id(movie_id)
+    movie_title = movie.get("title", "фильм") if movie else "фильм"
+
+    chat_id = callback.message.chat.id
+    ai_waiting[chat_id] = movie_id  # сохраняем, что для этого чата ждём ИИ-вопрос
+    print(f"[INFO] Пользователь {callback.from_user.id} спрашивает ИИ про {movie_title}")
+    await bot.send_message(chat_id, f"🤖 Задай вопрос про <b>{movie_title}</b>...", parse_mode="HTML")
+
 
 @dp.callback_query(F.data == "random_movie")
 async def random_movie_callback(callback: types.CallbackQuery):
@@ -297,6 +362,7 @@ async def random_movie_callback(callback: types.CallbackQuery):
         try: await loading_msg.delete()
         except: pass
 
+
 @dp.callback_query(F.data.startswith("trending_"))
 async def trending_movie_callback(callback: types.CallbackQuery):
     await callback.answer()
@@ -308,6 +374,7 @@ async def trending_movie_callback(callback: types.CallbackQuery):
     try: await callback.message.delete()
     except: pass
     await send_movie(callback.message.chat.id, movie)
+
 
 # ------------------- Запуск -------------------
 
@@ -324,6 +391,7 @@ async def main():
         await dp.start_polling(bot)
     finally:
         await bot.session.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
