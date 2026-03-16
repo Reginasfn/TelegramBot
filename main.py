@@ -148,7 +148,6 @@ async def unknown(message: types.Message):
 async def main():
 
     print("Бот успешно запущен 🚀")
-
     await bot.set_my_commands([
         types.BotCommand(command="start", description="Запустить бота"),
         types.BotCommand(command="random", description="Случайный фильм"),
