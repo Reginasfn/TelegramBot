@@ -37,6 +37,13 @@ Telegram PopсornBot — это Telegram-бот, который помогает
 - **Тренды дня** — Бот показывает список фильмов, которые сейчас в тренде (популярны именно сегодня).
   
   <img width="400" alt="Пример списка трендовых фильмов" src="https://github.com/user-attachments/assets/f0427112-fe4f-443b-9725-9ea08cab4d67">
+  
+- **Умный поиск** — Бот находит фильм по вашим предпочтениям (жанр, период).
+  
+  <img width="300" alt="image" src="https://github.com/user-attachments/assets/14109829-328a-4cda-a91a-65d4131a3a9c" />
+
+  <img width="300" alt="image" src="https://github.com/user-attachments/assets/d5e88b50-5a48-4421-ba0e-56a7f08cda43" />
+
 - На любые непонятные или неизвестные команды бот **вежливо реагирует**, предлагая воспользоваться меню.
 
   <img width="463" alt="Пример реакции на непонятное сообщение" src="https://github.com/user-attachments/assets/098efcdd-dcf8-46a1-ab09-885a163e727a">
