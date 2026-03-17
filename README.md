@@ -17,6 +17,10 @@ Telegram PopсornBot — это Telegram-бот, который помогает
 
 - **Случайный фильм** — Получите рекомендацию фильма на основе случайного выбора из базы TMDB.
 - **Подробная карточка фильма** — Бот отображает детальную информацию о фильме: название, год, рейтинг, жанр, режиссёра, актёров, описание и постер.
+
+  <img width="300" alt="Пример игры 'Угадай по описанию'" src="https://github.com/user-attachments/assets/14c965ac-b6d6-4580-945c-bdd59f45ee23">
+  <img width="300" alt="Пример ответа пользователя" src="https://github.com/user-attachments/assets/ceefe997-35b0-4d62-b000-575c5c026eb9">
+
 - **Просмотр трейлера** — Возможность перейти к просмотру трейлера фильма на YouTube.
   
   <img width="300" alt="image" src="https://github.com/user-attachments/assets/9e32b799-ef29-4a66-a3bc-758ca62814f9" />
@@ -27,8 +31,8 @@ Telegram PopсornBot — это Telegram-бот, который помогает
 
 - **Угадай по описанию** - Бот угадывает название фильма по описанию пользователя.
   
-  <img width="300" alt="Пример игры 'Угадай по описанию'" src="https://github.com/user-attachments/assets/14c965ac-b6d6-4580-945c-bdd59f45ee23">
-  <img width="300" alt="Пример ответа пользователя" src="https://github.com/user-attachments/assets/ceefe997-35b0-4d62-b000-575c5c026eb9">
+  <img width="300" alt="image" src="https://github.com/user-attachments/assets/b6c727fb-c9d5-44f0-8b70-4f54970340b0" />
+
   
 - **Тренды дня** — Бот показывает список фильмов, которые сейчас в тренде (популярны именно сегодня).
   
